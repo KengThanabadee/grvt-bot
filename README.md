@@ -211,6 +211,24 @@ config = ConfigManager()
 
 ---
 
+## 🤖 Using Antigravity Workflows
+
+**New to Antigravity workflows?** [Read the complete guide →](ANTIGRAVITY_GUIDE.md)
+
+### Quick Start with Workflows
+
+1. Open this folder in your editor (VS Code, etc.)
+2. Open Antigravity chat panel
+3. Type: `"Help me build a trading strategy"`
+4. Follow the guided workflow!
+
+**Available workflows:**
+- **Trading Strategy Builder** - Step-by-step strategy creation
+
+See [ANTIGRAVITY_GUIDE.md](ANTIGRAVITY_GUIDE.md) for detailed instructions.
+
+---
+
 ## ⚠️ Important Notes
 
 > **🔐 Security Warning**
