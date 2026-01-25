@@ -1,0 +1,28 @@
+# GRVT Bot Configuration
+# Copy this file to config.yaml and fill in your credentials
+
+grvt:
+  # Environment: "testnet" or "prod"
+  env: "testnet"
+  
+  # API Credentials
+  # Get these from GRVT dashboard
+  api_key: "your_api_key_here"
+  private_key: "your_private_key_here"  # Format: 0x...
+  
+  # Account IDs
+  trading_account_id: "your_trading_account_id"
+  sub_account_id: "0"  # Default sub-account
+
+trading:
+  # Trading pair
+  symbol: "BTC_USDT_Perp"
+  
+  # Leverage (must be set manually on GRVT web interface first!)
+  leverage: 10
+  
+  # Order size in USDT per signal
+  order_size_usdt: 500
+  
+  # Main loop interval in seconds
+  loop_interval: 60
