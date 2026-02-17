@@ -36,6 +36,9 @@ venv.bak/
 
 # Testing
 .pytest_cache/
+.pytest_tmp/
+pytest-cache-files-*/
+state_test_*/
 .coverage
 htmlcov/
 .tox/
@@ -56,3 +59,4 @@ Thumbs.db
 # Project specific
 pysdk/__pycache__/
 scripts/__pycache__/
+state/

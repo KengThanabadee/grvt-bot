@@ -33,9 +33,9 @@ class RandomStrategy(BaseStrategy):
         
         # Get signal interval from config or use default
         if config and hasattr(config, 'MAIN_LOOP_INTERVAL'):
-            self.signal_interval = config.MAIN_LOOP_INTERVAL
+            self.signal_interval = int(config.MAIN_LOOP_INTERVAL) * 60
         elif config and hasattr(config, 'get'):
-            self.signal_interval = config.get('trading', 'loop_interval', 60)
+            self.signal_interval = int(config.get('trading', 'loop_interval', 1)) * 60
         else:
             self.signal_interval = 60
         

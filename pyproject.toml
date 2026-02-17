@@ -65,7 +65,10 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
-addopts = "-v --cov=grvt_bot --cov-report=term-missing"
+addopts = "-m \"not integration\" -v --basetemp=.pytest_tmp -p no:cacheprovider"
+markers = [
+    "integration: tests that place live orders or query live exchange state",
+]
 
 [tool.mypy]
 python_version = "3.8"

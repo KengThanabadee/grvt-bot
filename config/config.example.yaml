@@ -16,7 +16,7 @@ grvt:
 
 trading:
   # Trading pair
-  symbol: "BTC_USDT_Perp"
+  symbol: "PAXG_USDT_Perp"
   
   # Leverage (must be set manually on GRVT web interface first!)
   leverage: 10
@@ -24,5 +24,54 @@ trading:
   # Order size in USDT per signal
   order_size_usdt: 500
   
-  # Main loop interval in seconds
-  loop_interval: 60
+  # Main loop interval in minutes (runs at second 00)
+  loop_interval: 1
+
+risk:
+  # Track selection: normal | low_vol
+  active_track: "normal"
+  fail_closed: true
+  kill_switch: false
+  threshold_action: "flatten_halt"
+
+  # Sizing controls
+  risk_per_trade_pct: 0.25
+  min_notional_safety_factor: 1.05
+
+  tracks:
+    normal:
+      max_drawdown_pct: 5.0
+      profit_target_pct: 5.0
+    low_vol:
+      max_drawdown_pct: 2.0
+      profit_target_pct: 2.0
+
+ops:
+  # Wait this long after minute boundary before fetching candle
+  data_close_buffer_seconds: 2
+  state_file: "state/runtime_state.json"
+  lock_file: "state/runtime.lock"
+  halt_on_reconcile_mismatch: true
+  startup_mismatch_policy: "adopt_continue"  # adopt_continue | halt_only | auto_flatten_halt
+  error_backoff_seconds: 2
+  max_repeated_errors: 20
+  repeated_error_window_seconds: 300
+
+execution:
+  close_mode: "reduce_only_twap_slice"
+  liquidity_usage_pct: 0.20
+  orderbook_levels: 20
+  max_slippage_bps: 20
+  close_min_slice_qty: 0.01
+  close_retry_interval_seconds: 2
+  close_max_retries: 20
+  close_max_duration_seconds: 90
+  close_no_progress_retries: 3
+  position_qty_tolerance: 0.000001
+  fail_halt_on_close_failure: true
+
+alerts:
+  enabled: true
+  telegram_enabled: false
+  telegram_bot_token: ""
+  telegram_chat_id: ""

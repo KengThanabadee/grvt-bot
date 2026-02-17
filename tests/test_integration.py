@@ -1,32 +1,31 @@
 import pytest
 import logging
 import time
-from execution import GRVTExecutor
-import config
 
 # Setup logger for tests
 logger = logging.getLogger(__name__)
+pytestmark = pytest.mark.integration
 
 class TestGRVTIntegration:
     
-    def test_account_summary(self, executor: GRVTExecutor):
+    def test_account_summary(self, live_executor):
         """Test fetching account summary."""
-        balance = executor.get_account_summary()
+        balance = live_executor.get_account_summary()
         assert balance is not None
         logger.info(f"Account Balance: {balance}")
         # Depending on CCXT response structure, we might check 'total' or specific currency
         # e.g., assert 'USDC' in balance['total']
 
-    def test_market_order_flow(self, executor: GRVTExecutor):
+    def test_market_order_flow(self, live_executor, live_config):
         """
         Tests placing a market order and then closing it.
         WARNING: This uses REAL MONEY on Mainnet or Testnet funds on Testnet.
         """
-        symbol = config.SYMBOL
+        symbol = live_config.SYMBOL
         amount_usdc = 200.0 # Increased to meet min order size
         
         # Get current price to calculate base amount
-        price = executor.get_market_price(symbol)
+        price = live_executor.get_market_price(symbol)
         assert price > 0, "Market price should be positive"
         
         amount_base = amount_usdc / price
@@ -39,7 +38,12 @@ class TestGRVTIntegration:
             pytest.skip("Calculated amount is too small")
 
         logger.info(f"Placing Market BUY for {amount_base} {symbol}")
-        order = executor.place_market_order(symbol, 'buy', amount_base, leverage=config.LEVERAGE)
+        order = live_executor.place_market_order(
+            symbol,
+            "buy",
+            amount_base,
+            leverage=live_config.LEVERAGE,
+        )
         assert order is not None
         assert 'id' in order
         
@@ -50,13 +54,18 @@ class TestGRVTIntegration:
         
         # Close position
         logger.info(f"Closing position for {symbol}")
-        executor.place_market_order(symbol, 'sell', amount_base, leverage=config.LEVERAGE)
+        live_executor.place_market_order(
+            symbol,
+            "sell",
+            amount_base,
+            leverage=live_config.LEVERAGE,
+        )
         # Or use close_all_positions if implemented robustly
         
-    def test_limit_order(self, executor: GRVTExecutor):
+    def test_limit_order(self, live_executor, live_config):
         """Tests placing a Limit order away from market price."""
-        symbol = config.SYMBOL
-        price = executor.get_market_price(symbol)
+        symbol = live_config.SYMBOL
+        price = live_executor.get_market_price(symbol)
         assert price > 0
         
         # Place buy limit 50% below current price to avoid fill
@@ -66,7 +75,13 @@ class TestGRVTIntegration:
         amount_base = round(amount_usdc / limit_price, 3)
 
         logger.info(f"Placing Limit BUY at {limit_price}")
-        order = executor.place_limit_order(symbol, 'buy', amount_base, limit_price, leverage=config.LEVERAGE)
+        order = live_executor.place_limit_order(
+            symbol,
+            "buy",
+            amount_base,
+            limit_price,
+            leverage=live_config.LEVERAGE,
+        )
         assert order is not None
         assert order['type'] == 'limit'
         
@@ -75,19 +90,19 @@ class TestGRVTIntegration:
         # BUT standard ccxt has cancel_order.
         if order.get('id'):
             try:
-                executor.client.cancel_order(order['id'], symbol)
+                live_executor.client.cancel_order(order['id'], symbol)
                 logger.info("Limit order canceled")
             except Exception as e:
                 logger.warning(f"Failed to cancel limit order: {e}")
 
-    def test_tpsl_order(self, executor: GRVTExecutor):
+    def test_tpsl_order(self, live_executor, live_config):
         """Tests placing an order with TP/SL params."""
-        symbol = config.SYMBOL
-        price = executor.get_market_price(symbol)
+        symbol = live_config.SYMBOL
+        price = live_executor.get_market_price(symbol)
         assert price > 0
         
         amount_usdc = 200.0
-        amount_base = round(amount_usdc / price, 5)
+        amount_base = round(amount_usdc / price, 3)
         
         # Assuming CCXT standard params for stopLoss/takeProfit
         # or exchange specific params. GRVT specific might differ.
@@ -100,9 +115,9 @@ class TestGRVTIntegration:
         }
         
         logger.info(f"Placing Market BUY with TP/SL: {tpsl_params}")
-        order = executor.place_market_order(
-            symbol, 'buy', amount_base, 
-            leverage=config.LEVERAGE, 
+        order = live_executor.place_market_order(
+            symbol, 'buy', amount_base,
+            leverage=live_config.LEVERAGE,
             params=tpsl_params
         )
         
@@ -112,4 +127,9 @@ class TestGRVTIntegration:
             
             # Close/Cleanup
             time.sleep(2)
-            executor.place_market_order(symbol, 'sell', amount_base, leverage=config.LEVERAGE)
+            live_executor.place_market_order(
+                symbol,
+                'sell',
+                amount_base,
+                leverage=live_config.LEVERAGE,
+            )
