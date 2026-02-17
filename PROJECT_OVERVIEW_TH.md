@@ -1,111 +1,71 @@
-# ภาพรวมโปรเจกต์ (Thai)
+﻿# ภาพรวมระบบ GRVT Bot (ภาษาไทย)
 
-เอกสารนี้สรุปโครงสร้างและพฤติกรรมของระบบบอทเวอร์ชันปัจจุบันแบบสั้นและใช้งานจริง
+เอกสารนี้เป็นคู่มือภาพรวมสำหรับผู้ดูแลระบบ (operator) โดยอ้างอิงพฤติกรรม runtime ปัจจุบัน
 
-## 1. เป้าหมายโปรเจกต์
+## 1. ระบบนี้ทำอะไร
 
-`grvt_demo_bot` คือบอทเทรดสำหรับ GRVT perpetual market ที่เน้น:
+`grvt-bot` เป็นบอทเทรดแบบ API-only สำหรับตลาด perpetual บน GRVT โดยเน้น:
+- การคุมความเสี่ยงแบบ fail-closed
+- การทำงานรอบเวลาแบบ minute-aligned
+- การเก็บ state เพื่อฟื้นตัวหลัง restart
+- การปิดสถานะแบบ adaptive reduce-only
 
-1. รันแบบ API-only
-2. คุมความเสี่ยงแบบ fail-closed
-3. มี state/reconcile เพื่อ recovery หลัง restart
-4. ปิด position แบบ adaptive ตาม liquidity ของ orderbook
-
-## 2. สถาปัตยกรรมหลัก
-
-โครงสร้างสำคัญ:
+## 2. โครงสร้างหลักที่ต้องรู้
 
 - `grvt_bot/cli/main.py`
-  - entrypoint ของบอท
-  - loop minute-aligned
-  - ผูก strategy + risk + state + execution
+  - จุดเริ่ม runtime loop
+  - จัดการ schedule, strategy, risk, state และ execution
 - `grvt_bot/core/config.py`
-  - config manager จาก YAML + env override
-- `grvt_bot/core/executor.py`
-  - interface คุย exchange (price/order/position/orderbook)
-  - adaptive reduce-only close flow
+  - โหลด config จาก YAML และ environment variables
 - `grvt_bot/core/risk.py`
-  - entry gate และ threshold policy
+  - entry gate, threshold และ kill switch
 - `grvt_bot/core/state.py`
-  - persist/recover/reconcile state
-- `grvt_bot/core/alerts.py`
-  - alerts ผ่าน logger และ telegram (optional)
-- `grvt_bot/strategies/`
-  - strategy implementations (`random`, `paxg_mean_reversion_strategy`)
+  - จัดเก็บ state และ reconcile กับ exchange ตอนเริ่มระบบ
+- `grvt_bot/core/executor.py`
+  - ดึงราคา ส่งออเดอร์ และ close แบบ adaptive
 
-## 3. พฤติกรรม Runtime ปัจจุบัน
+## 3. ลำดับการทำงานโดยย่อ
 
-1. Scheduler
-- รันตาม `trading.loop_interval` (นาที)
-- align ที่วินาที `00`
-- รอ `ops.data_close_buffer_seconds` ก่อนดึง candle
+1. โหลด config และตรวจความถูกต้อง
+2. lock process เพื่อกันรันซ้ำหลาย instance
+3. reconcile state กับ position จริงบน exchange
+4. เข้า loop ตาม `trading.loop_interval` (หน่วย: นาที)
+5. รอ `ops.data_close_buffer_seconds` ก่อนดึง candle
+6. ประเมิน risk/threshold ก่อนเปิดสถานะ
+7. ส่งคำสั่งผ่าน executor และบันทึก state
 
-2. Data guards
-- ถ้า candle เก่าเกินหรือซ้ำรอบเดิม จะ skip
+## 4. โหมดใช้งาน (Testnet / Production)
 
-3. Startup reconcile
-- sync state กับ exchange ก่อนเริ่ม loop
-- policy ตาม `ops.startup_mismatch_policy`:
-  - `adopt_continue`
-  - `halt_only`
-  - `auto_flatten_halt`
+- Testnet:
+  - `grvt.env: testnet`
+  - ใช้ทดสอบ logic และ dry-run
+- Production:
+  - `grvt.env: prod`
+  - ใช้เงินจริง ต้องเริ่มแบบ canary ก่อน
 
-4. Risk flow
-- บล็อก entry เมื่อ kill-switch/halted/fail-closed condition
-- คำนวณ sizing จาก `risk_per_trade_pct + leverage`
-- ตรวจ min thresholds จาก exchange metadata + derived min notional
+## 5. จุดที่ต้องระวัง
 
-5. Exit/flatten execution
-- ใช้ adaptive close แบบ reduce-only
-- ถ้า liquidity ดี: ปิดก้อนเดียว
-- ถ้า liquidity บาง: ซอยไม้ + retry
-- มี hard stop เพื่อไม่ให้วนไม่จบ
+- ค่า `trading.loop_interval` เป็น “นาที” ไม่ใช่วินาที
+- ค่า default strategy ใน CLI คือ `PAXGMeanReversionStrategy`
+- แต่ค่า default symbol ใน config code คือ `BTC_USDT_Perp`
+  - ถ้าจะใช้กลยุทธ์ PAXG ให้ตั้ง `trading.symbol` เป็น `PAXG_USDT_Perp` ชัดเจน
 
-## 4. Config Domains ที่สำคัญ
+## 6. คำสั่งพื้นฐาน
 
-1. `grvt`: credentials + env
-2. `trading`: symbol/leverage/loop interval
-3. `risk`: track, thresholds, fail-closed, risk per trade
-4. `ops`: state/lock/reconcile/runtime guards
-5. `execution`: adaptive close policy
-6. `alerts`: alert channels
+```bash
+grvt-bot --config config/config.yaml --dry-run
+grvt-bot --config config/config.yaml
+```
 
-ดูรายละเอียด key ทั้งหมดที่ `CONFIG_REFERENCE.md`
-
-## 5. State และความทนทาน
-
-state file (`ops.state_file`) เก็บอย่างน้อย:
-
-- `open_position`
-- `halted` / `halt_reason`
-- `baseline_equity_usdt`
-- `last_candle_open_time_ms`
-- `pending_action`
-- `close_attempt_count`
-- `last_close_reason`
-
-เป้าหมายคือ restart แล้ว recover ได้ และไม่สูญเสียบริบทการจัดการความเสี่ยง
-
-## 6. Test Strategy
-
-แนวปัจจุบัน:
-
-1. Unit tests เป็น default (`pytest -q`)
-2. Integration tests opt-in (`RUN_LIVE_TESTS=1`)
-3. มี test ครอบ scheduler/risk/state/executor close policy
-
-## 7. การใช้งานเอกสาร
-
-ลำดับอ่านสำหรับ operator:
+## 7. เอกสารที่ควรอ่านต่อ
 
 1. `README.md`
 2. `RUNBOOK.md`
 3. `CONFIG_REFERENCE.md`
 4. `OPERATIONS_CHECKLIST.md`
-5. `PAXG_STRATEGY_DOCS.md` (เมื่อใช้ strategy นี้)
+5. `PAXG_STRATEGY_DOCS.md`
 
-## 8. Known Non-Goals (รอบนี้)
+## 8. ขอบเขตเอกสารนี้
 
-1. ไม่แตะ git history cleanup
-2. ไม่ผูกกับ UI/web flow สำหรับการเทรดจริง
-3. ไม่ refactor legacy ทั้งก้อน
+- เน้นมุม operator และการ deploy/runtime
+- รายละเอียดเชิง migration/dev ดูที่ `docs/MIGRATION.md` และ `docs/SKILL.md`
